@@ -40,12 +40,33 @@
     }
     a { color: #B6C1D9; text-decoration: none; }
     a:hover { text-decoration: underline; }
+
+    /* AI Button */
+    .ai-btn {
+      position: fixed;
+      right: 12px;
+      bottom: 44px; /* sits above the footer */
+      padding: 8px 12px;
+      background: #2A2F3A;
+      color: #EBF0FA;
+      border: 1px solid #3C4250;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+      z-index: 10;
+    }
+    .ai-btn:hover { background: #333A48; }
+    .ai-btn:active { transform: translateY(1px); }
   </style>
 </head>
 <body>
   <div id="wrap">
     <canvas id="game"></canvas>
   </div>
+
+  <button id="ai-btn" class="ai-btn" title="Let the AI solve this level">AI</button>
+
   <div class="footer">RayTrace (Web) • Drag to aim, release to fire</div>
   <script type="module" src="./raytrace.js"></script>
 </body>
