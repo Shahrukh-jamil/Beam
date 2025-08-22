@@ -770,6 +770,64 @@ class Level {
     }
     return count;
   }
+
+  // ---------- Solver: find a direction that hits the target ----------
+  findWinningDirection() {
+    const tryDir = (dir) => {
+      if (!dir || v_len(dir) < 1e-9) return null;
+      const [, hit] = this._raycast_path(this.emitter, v_norm(dir), MAX_BOUNCES);
+      return hit ? v_norm(dir) : null;
+    };
+
+    // 1) Use computed solution direction if valid
+    const sol = tryDir(this.solution_first_dir);
+    if (sol) return sol;
+
+    // 2) Local scans around plausible angles
+    const baseAngles = [];
+    if (this.solution_first_dir && v_len(this.solution_first_dir) > 1e-9) {
+      baseAngles.push(angle_of(this.solution_first_dir));
+    }
+    const toTarget = v_norm(v_sub(this.target.center(), this.emitter));
+    if (v_len(toTarget) > 1e-9) baseAngles.push(angle_of(toTarget));
+
+    const scanLocal = (base, stepDeg = 0.25, spreadDeg = 15) => {
+      const steps = Math.round(spreadDeg / stepDeg);
+      for (let k = 0; k <= steps; k++) {
+        const off = (Math.PI / 180) * (k * stepDeg);
+        const d1 = [Math.cos(base + off), Math.sin(base + off)];
+        const h1 = tryDir(d1); if (h1) return h1;
+        if (k > 0) {
+          const d2 = [Math.cos(base - off), Math.sin(base - off)];
+          const h2 = tryDir(d2); if (h2) return h2;
+        }
+      }
+      return null;
+    };
+
+    for (const base of baseAngles) {
+      const found = scanLocal(base, 0.25, 15);
+      if (found) return found;
+    }
+
+    // 3) Global coarse and fine scans
+    const scanGlobal = (stepDeg) => {
+      const steps = Math.floor(360 / stepDeg);
+      for (let i = 0; i < steps; i++) {
+        const ang = (Math.PI / 180) * (i * stepDeg);
+        const d = [Math.cos(ang), Math.sin(ang)];
+        const h = tryDir(d);
+        if (h) return h;
+      }
+      return null;
+    };
+
+    let found = scanGlobal(0.5);
+    if (found) return found;
+
+    found = scanGlobal(0.1);
+    return found; // may return null in very rare cases
+  }
 }
 
 // -------------------- Viewport --------------------
@@ -912,6 +970,21 @@ class Game {
     this.beam_active = true;
     this.beam_seg_index = 0;
     this.beam_seg_pos = 0.0;
+  }
+
+  // Public: Let AI aim and fire to finish the current round
+  aiFinishLevel() {
+    if (this.state === "menu") {
+      this.startRound();
+    }
+    if (this.state !== "playing" || this.beam_active || !this.level) return;
+
+    const dir = this.level.findWinningDirection();
+    if (dir) {
+      this._fireBeam(dir);
+    } else {
+      console.warn("AI couldn't find a solution direction for this level.");
+    }
   }
 
   _update(dt){
@@ -1222,4 +1295,10 @@ function roundRect(ctx, x, y, w, h, r){
 
 // Bootstrap
 const canvas = document.getElementById("game");
-new Game(canvas);
+const game = new Game(canvas);
+
+// Wire AI button
+const aiBtn = document.getElementById("ai-btn");
+if (aiBtn) {
+  aiBtn.addEventListener("click", () => game.aiFinishLevel());
+}
